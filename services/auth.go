@@ -68,6 +68,9 @@ func (s *AuthService) Login(req payload.LoginRequest) (*schema.Auth, error) {
 		return nil, errors.New("Invalid credentials!")
 	}
 
+	// TODO: Add a check to verify is the user is not already logged in through
+	// 		 querying sessions.
+
 	// Validates Password
 	err = bcrypt.CompareHashAndPassword(
 		[]byte(user.PasswordHash), []byte(req.Password),

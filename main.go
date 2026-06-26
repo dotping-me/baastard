@@ -33,11 +33,16 @@ func main() {
 	}
 
 	// Running database migrations
-	db.AutoMigrate(&schema.Auth{})
+	db.AutoMigrate(
+		&schema.Auth{},
+		&schema.Session{},
+	)
 
 	// Registering services and handlers
 	authService := services.NewAuthService(db)
-	authHandler := handlers.NewAuthHandler(authService)
+	sessionService := services.NewSessionService(db)
+
+	authHandler := handlers.NewAuthHandler(authService, sessionService)
 
 	// Setting up the HTTP server
 	r := gin.Default()
@@ -49,6 +54,10 @@ func main() {
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/refresh", authHandler.Refresh)
+			auth.POST("/logout", authHandler.Logout)
+			auth.POST("/logout-all", middleware.AuthRequired(), authHandler.LogoutAll)
+
 			auth.GET("/me", middleware.AuthRequired(), authHandler.Me)
 		}
 	}

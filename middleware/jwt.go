@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// TODO: Move to services/token.go
 type Claims struct {
 	ID    string `json:"id"`
 	Email string `json:"email"` // TODO: Maybe store the full user
@@ -18,6 +19,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// TODO: Move to services/token.go
 // Generate a token string for a given auth user
 func GenerateToken(user *schema.Auth) (string, error) {
 	claims := Claims{
