@@ -1,0 +1,7 @@
+
+# Environment
+.env
+
+# Outputs
+*.db
+*.db-wal
