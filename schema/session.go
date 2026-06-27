@@ -28,5 +28,13 @@ func (s *Session) BeforeCreate(tx *gorm.DB) error {
 		s.ID = uuid.NewString()
 	}
 
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = time.Now()
+
+	return nil
+}
+
+func (s *Session) BeforeUpdate(tx *gorm.DB) error {
+	s.UpdatedAt = time.Now()
 	return nil
 }

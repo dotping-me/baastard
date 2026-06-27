@@ -12,12 +12,13 @@ import (
 // (i.e. JWT)
 
 type User struct {
-	ID           string    `json:"id" 		gorm:"primaryKey"`
-	Email        string    `json:"email"	gorm:"uniqueIndex;not null"`
-	PasswordHash string    `json:"-" 		gorm:"not null"`
-	Verified     bool      `json:"verified"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID           string `json:"id" 		gorm:"primaryKey"`
+	Email        string `json:"email"	gorm:"uniqueIndex;not null"`
+	PasswordHash string `json:"-" 		gorm:"not null"`
+	Verified     bool   `json:"verified"`
+
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 
 	TokenState uint `gorm:"default:0"` // Used to invalidate access tokens after logout
 }
@@ -28,9 +29,14 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 		u.ID = uuid.NewString()
 	}
 
-	// Default values
 	u.Verified = false
 	u.CreatedAt = time.Now()
+	u.UpdatedAt = time.Now()
 
+	return nil
+}
+
+func (u *User) BeforeUpdate(tx *gorm.DB) error {
+	u.UpdatedAt = time.Now()
 	return nil
 }

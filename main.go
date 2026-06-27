@@ -33,16 +33,21 @@ func main() {
 	}
 
 	// Running database migrations
+	db.Exec("PRAGMA foreign_keys = ON")
 	db.AutoMigrate(
 		&schema.User{},
 		&schema.Session{},
+		&schema.EntityMetadata{},
+		&schema.FieldMetadata{},
 	)
 
 	// Registering services and handlers
 	authService := services.NewAuthService(db)
 	sessionService := services.NewSessionService(db)
+	metadataService := services.NewMetadataService(db)
 
 	authHandler := handlers.NewAuthHandler(authService, sessionService)
+	metadataHandler := handlers.NewMetadataHandler(metadataService)
 
 	// Setting up the HTTP server
 	r := gin.Default()
@@ -60,6 +65,17 @@ func main() {
 				middleware.AuthRequired(authService), authHandler.LogoutAll)
 
 			auth.GET("/me", middleware.AuthRequired(authService), authHandler.Me)
+		}
+
+		// TODO: Add Auth middleware
+		metadata := api.Group("/metadata")
+		{
+			metadata.POST("", metadataHandler.Create)
+
+			metadata.GET("", metadataHandler.GetAll)
+			metadata.GET("/:id", metadataHandler.GetById)
+
+			metadata.DELETE("/:id", metadataHandler.Delete)
 		}
 	}
 
