@@ -34,7 +34,7 @@ func main() {
 
 	// Running database migrations
 	db.AutoMigrate(
-		&schema.Auth{},
+		&schema.User{},
 		&schema.Session{},
 	)
 
@@ -56,9 +56,10 @@ func main() {
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.Refresh)
 			auth.POST("/logout", authHandler.Logout)
-			auth.POST("/logout-all", middleware.AuthRequired(), authHandler.LogoutAll)
+			auth.POST("/logout-all",
+				middleware.AuthRequired(authService), authHandler.LogoutAll)
 
-			auth.GET("/me", middleware.AuthRequired(), authHandler.Me)
+			auth.GET("/me", middleware.AuthRequired(authService), authHandler.Me)
 		}
 	}
 

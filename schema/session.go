@@ -9,8 +9,14 @@ import (
 
 type Session struct {
 	ID           string `gorm:"primaryKey"`
-	AuthID       string `gorm:"index;not null"`
+	UserID       string `gorm:"index;not null"`
 	RefreshToken string `gorm:"uniqueIndex;not null"`
+
+	// Device Binding to prevent a possibly stolen refresh token to work on
+	// another machine
+	DeviceID  string `gorm:"index"`
+	UserAgent string
+	IPAddress string
 
 	ExpiresAt time.Time
 	CreatedAt time.Time

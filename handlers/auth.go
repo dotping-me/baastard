@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/dotping-me/baastard/middleware"
 	"github.com/dotping-me/baastard/payload"
 	"github.com/dotping-me/baastard/services"
 	"github.com/gin-gonic/gin"
@@ -77,7 +76,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	}
 
 	// Successful login, now generates an access token for that user
-	accessToken, err := middleware.GenerateToken(user)
+	accessToken, err := services.GenerateToken(user)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -87,7 +86,11 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	}
 
 	// Creates a new session for that user
-	session, err := h.sessions.Create(user.ID)
+
+	deviceID := services.GetDeviceIDOrCreate(ctx) // Sets the Cookie
+	session, err := h.sessions.Create(user.ID, deviceID,
+		ctx.Request.UserAgent(), ctx.ClientIP())
+
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -96,9 +99,10 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 
+	services.SetRefreshCookie(ctx, session.RefreshToken) // Sets the HTTP Only Cookie
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"accessToken":  accessToken,
-		"refreshToken": session.RefreshToken,
+		"accessToken": accessToken,
 
 		"user": gin.H{
 			"id":    user.ID,
@@ -110,36 +114,55 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 // Handler that refreshes a session for a logged in user
 func (h *AuthHandler) Refresh(ctx *gin.Context) {
 
-	var req payload.RefreshTokenRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+	refreshToken, err := services.GetRefreshTokenFromCookie(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Missing refresh cookie!",
 		})
 
 		return
 	}
 
 	// Finds the valid session for that user
-	session, err := h.sessions.Get(req.RefreshToken)
+	session, err := h.sessions.Get(refreshToken)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid session!",
+		})
+
+		return
+	}
+
+	// Device Binding Validation
+	deviceID, err := services.GetExistingDeviceID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
 			"error": err.Error(),
 		})
 
 		return
 	}
 
-	user, err := h.auth.FindByID(session.AuthID)
+	err = h.sessions.ValidateDevice(session, deviceID)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "Invalid Session!",
+			"error": "Device does not match!",
+		})
+
+		return
+	}
+
+	user, err := h.auth.FindByID(session.UserID)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid session!",
 		})
 
 		return
 	}
 
 	// User has been validated, regenerate access token
-	accessToken, err := middleware.GenerateToken(user)
+	accessToken, err := services.GenerateToken(user)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -158,26 +181,27 @@ func (h *AuthHandler) Refresh(ctx *gin.Context) {
 		return
 	}
 
+	services.SetRefreshCookie(ctx, session.RefreshToken) // Updates Cookie
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"accessToken":  accessToken,
-		"refreshToken": session.RefreshToken,
+		"accessToken": accessToken,
 	})
 }
 
 // Handler to log out a user
 func (h *AuthHandler) Logout(ctx *gin.Context) {
 
-	var req payload.LogoutRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+	refreshToken, err := services.GetRefreshTokenFromCookie(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Missing refresh cookie!",
 		})
 
 		return
 	}
 
 	// Deletes the session
-	err := h.sessions.Delete(req.RefreshToken)
+	err = h.sessions.Delete(refreshToken)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -185,6 +209,15 @@ func (h *AuthHandler) Logout(ctx *gin.Context) {
 
 		return
 	}
+
+	services.ClearRefreshCookie(ctx)
+
+	// NOTE: Access tokens are not revoked here because it may happen that
+	//		 the user didn't mean to log out (i.e. token expired and user was
+	//		 forced out).
+
+	// 		 However, a user can intentionally log out and still have a valid JWT
+	// 		 token.
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Logged out",
@@ -193,9 +226,9 @@ func (h *AuthHandler) Logout(ctx *gin.Context) {
 
 // Handler to logout the user from all sessions
 func (h *AuthHandler) LogoutAll(ctx *gin.Context) {
-	claims := ctx.MustGet("claims").(*middleware.Claims)
-	err := h.sessions.DeleteAll(claims.ID)
+	claims := ctx.MustGet("claims").(*services.Claims)
 
+	err := h.auth.IncrementTokenState(claims.ID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -204,6 +237,17 @@ func (h *AuthHandler) LogoutAll(ctx *gin.Context) {
 		return
 	}
 
+	err = h.sessions.DeleteAll(claims.ID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+
+		return
+	}
+
+	services.ClearRefreshCookie(ctx)
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Logged out all devices",
 	})
@@ -211,29 +255,9 @@ func (h *AuthHandler) LogoutAll(ctx *gin.Context) {
 
 // Helper handler to return information about self + self-auth
 func (h *AuthHandler) Me(ctx *gin.Context) {
-
-	// TODO: Turn this into a modular helper function or set claims explicitly
-	claims, ok := ctx.Get("claims")
-	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "Missing claims!",
-		})
-
-		return
-	}
-
-	// Casting for type safety (and also so that I get autocompletion)
-	jwtClaims, ok := claims.(*middleware.Claims)
-	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "Missing claims!",
-		})
-
-		return
-	}
-
+	claims := ctx.MustGet("claims").(*services.Claims)
 	ctx.JSON(http.StatusOK, gin.H{
-		"id":    jwtClaims.ID,
-		"email": jwtClaims.Email,
+		"id":    claims.ID,
+		"email": claims.Email,
 	})
 }

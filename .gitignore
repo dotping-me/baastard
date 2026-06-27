@@ -5,3 +5,7 @@
 # Outputs
 *.db
 *.db-wal
+
+# Produced when testing with CURL
+cookies.txt
+evil.txt

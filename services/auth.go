@@ -23,8 +23,8 @@ func NewAuthService(db *gorm.DB) *AuthService {
 }
 
 // Method to register a new auth user onto the system:
-func (s *AuthService) Register(req payload.RegisterAuthRequest) (*schema.Auth, error) {
-	var existing schema.Auth
+func (s *AuthService) Register(req payload.RegisterAuthRequest) (*schema.User, error) {
+	var existing schema.User
 
 	// Checks if email already exists
 	err := s.db.Where("email = ?", req.Email).First(&existing).Error
@@ -39,13 +39,13 @@ func (s *AuthService) Register(req payload.RegisterAuthRequest) (*schema.Auth, e
 
 	// TODO: Extra step to verify email address, if enabled
 
-	// Hashes the password and creates the Auth user
+	// Hashes the password and creates the User
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
-	user := schema.Auth{
+	user := schema.User{
 		Email:        req.Email,
 		PasswordHash: string(hash),
 	}
@@ -60,8 +60,8 @@ func (s *AuthService) Register(req payload.RegisterAuthRequest) (*schema.Auth, e
 }
 
 // Method that allows a user to login in and creates a session
-func (s *AuthService) Login(req payload.LoginRequest) (*schema.Auth, error) {
-	var user schema.Auth
+func (s *AuthService) Login(req payload.LoginRequest) (*schema.User, error) {
+	var user schema.User
 
 	err := s.db.Where("email = ?", req.Email).First(&user).Error
 	if err != nil {
@@ -84,8 +84,8 @@ func (s *AuthService) Login(req payload.LoginRequest) (*schema.Auth, error) {
 }
 
 // Helper method that just queries for a user by email
-func (s *AuthService) FindByEmail(email string) (*schema.Auth, error) {
-	var user schema.Auth
+func (s *AuthService) FindByEmail(email string) (*schema.User, error) {
+	var user schema.User
 
 	err := s.db.Where("email = ?", email).First(&user).Error
 	if err != nil {
@@ -96,8 +96,8 @@ func (s *AuthService) FindByEmail(email string) (*schema.Auth, error) {
 }
 
 // Helper method that just queries for a user by id
-func (s *AuthService) FindByID(id string) (*schema.Auth, error) {
-	var user schema.Auth
+func (s *AuthService) FindByID(id string) (*schema.User, error) {
+	var user schema.User
 
 	err := s.db.Where("id = ?", id).First(&user).Error
 	if err != nil {
@@ -105,4 +105,16 @@ func (s *AuthService) FindByID(id string) (*schema.Auth, error) {
 	}
 
 	return &user, nil
+}
+
+// Method that increments session state to invalidate existing non-expired access
+// tokens for a given user
+func (s *AuthService) IncrementTokenState(id string) error {
+	user, err := s.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	user.TokenState++
+	return s.db.Save(user).Error
 }

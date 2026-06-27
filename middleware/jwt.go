@@ -4,46 +4,15 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/dotping-me/baastard/schema"
+	"github.com/dotping-me/baastard/services"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// TODO: Move to services/token.go
-type Claims struct {
-	ID    string `json:"id"`
-	Email string `json:"email"` // TODO: Maybe store the full user
-
-	jwt.RegisteredClaims
-}
-
-// TODO: Move to services/token.go
-// Generate a token string for a given auth user
-func GenerateToken(user *schema.Auth) (string, error) {
-	claims := Claims{
-		ID:    user.ID,
-		Email: user.Email,
-
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)), // TODO: Make this configurable
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	// Signs token using secret
-	// TODO: Make secret also configurable
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	secret := []byte(os.Getenv("SECRET"))
-
-	return token.SignedString(secret)
-}
-
 // Authentication middleware that checks if user is authenticated through its JWT
 // token.
-func AuthRequired() gin.HandlerFunc {
+func AuthRequired(auth *services.AuthService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 
 		// Getting Authorization header
@@ -67,7 +36,7 @@ func AuthRequired() gin.HandlerFunc {
 		}
 
 		// Validating the JWT token
-		claims := &Claims{}
+		claims := &services.Claims{}
 		secret := []byte(os.Getenv("SECRET"))
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
 			return secret, nil
@@ -76,6 +45,28 @@ func AuthRequired() gin.HandlerFunc {
 		if err != nil || !token.Valid {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid Token!",
+			})
+
+			return
+		}
+
+		// Validating the session state: Has the user logged out but JWT has not
+		// expired yet?
+
+		// NOTE: Extra DB query for every protected route
+
+		user, err := auth.FindByID(claims.ID)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "No user for this access token!",
+			})
+
+			return
+		}
+
+		if user.TokenState != claims.TokenState {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "Session revoked!",
 			})
 
 			return

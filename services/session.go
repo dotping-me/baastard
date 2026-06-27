@@ -36,7 +36,8 @@ func generateRefreshToken() (string, error) {
 }
 
 // Method that creates a session for a user
-func (s *SessionService) Create(userID string) (*schema.Session, error) {
+func (s *SessionService) Create(userID string,
+	deviceID string, userAgent string, ip string) (*schema.Session, error) {
 
 	// Generates a refresh token
 	token, err := generateRefreshToken()
@@ -46,9 +47,14 @@ func (s *SessionService) Create(userID string) (*schema.Session, error) {
 
 	// Create and store session in the database
 	session := schema.Session{
-		AuthID:       userID,
+		UserID:       userID,
 		RefreshToken: token,
-		ExpiresAt:    time.Now().Add(30 * 24 * time.Hour), // TODO: Make this configurable
+
+		DeviceID:  deviceID,
+		UserAgent: userAgent,
+		IPAddress: ip,
+
+		ExpiresAt: time.Now().Add(RefreshCookieMaxAge),
 	}
 
 	err = s.db.Create(&session).Error
@@ -117,5 +123,14 @@ func (s *SessionService) Delete(token string) error {
 
 // Method to delete all sessions belonging to a user ID
 func (s *SessionService) DeleteAll(userID string) error {
-	return s.db.Where("auth_id=?", userID).Delete(&schema.Session{}).Error
+	return s.db.Where("user_id=?", userID).Delete(&schema.Session{}).Error
+}
+
+// Helper method to validate a device connection
+func (s *SessionService) ValidateDevice(session *schema.Session, deviceID string) error {
+	if session.DeviceID != deviceID {
+		return errors.New("Invalid device!")
+	}
+
+	return nil
 }
