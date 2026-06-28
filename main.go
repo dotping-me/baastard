@@ -54,8 +54,8 @@ func main() {
 	sessionService := services.NewSessionService(db)
 	authHandler := handlers.NewAuthHandler(authService, sessionService)
 
-	crudService := services.NewCrudService(db)
 	cfgService := services.NewTableConfigService(db)
+	crudService := services.NewCrudService(tursoConn, cfgService)
 	crudHandler := handlers.NewCrudHandler(crudService)
 
 	// Starting the the public HTTP server
