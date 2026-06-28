@@ -5,10 +5,9 @@ import (
 	"os"
 
 	"github.com/dotping-me/baastard/handlers"
-	"github.com/dotping-me/baastard/middleware"
+	"github.com/dotping-me/baastard/router"
 	"github.com/dotping-me/baastard/schema"
 	"github.com/dotping-me/baastard/services"
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,6 +18,9 @@ func main() {
 	godotenv.Load()
 
 	// Establishing Turso connection
+	// TODO: Make it configurable so that the database is encrypted using Turso's
+	// 		 native encryption.
+
 	tursoConn, err := sql.Open("turso", "__db.db")
 	if err != nil {
 		panic(err)
@@ -37,56 +39,48 @@ func main() {
 	db.AutoMigrate(
 		&schema.User{},
 		&schema.Session{},
-		&schema.EntityMetadata{},
-		&schema.FieldMetadata{},
+		&schema.TableConfig{},
 	)
+
+	// Syncs up table_configs table
+	tableConfigService := services.NewTableConfigService(db)
+	err = tableConfigService.Sync()
+	if err != nil {
+		panic(err)
+	}
 
 	// Registering services and handlers
 	authService := services.NewAuthService(db)
 	sessionService := services.NewSessionService(db)
-	metadataService := services.NewMetadataService(db)
-
 	authHandler := handlers.NewAuthHandler(authService, sessionService)
-	metadataHandler := handlers.NewMetadataHandler(metadataService)
 
-	// Setting up the HTTP server
-	r := gin.Default()
+	crudService := services.NewCrudService(db)
+	cfgService := services.NewTableConfigService(db)
+	crudHandler := handlers.NewCrudHandler(crudService)
 
-	// API Routes
-	api := r.Group("/api")
-	{
-		auth := api.Group("/auth")
-		{
-			auth.POST("/register", authHandler.Register)
-			auth.POST("/login", authHandler.Login)
-			auth.POST("/refresh", authHandler.Refresh)
-			auth.POST("/logout", authHandler.Logout)
-			auth.POST("/logout-all",
-				middleware.AuthRequired(authService), authHandler.LogoutAll)
-
-			auth.GET("/me", middleware.AuthRequired(authService), authHandler.Me)
-		}
-
-		// TODO: Add Auth middleware
-		metadata := api.Group("/metadata")
-		{
-			metadata.POST("", metadataHandler.Create)
-
-			metadata.GET("", metadataHandler.GetAll)
-			metadata.GET("/:id", metadataHandler.GetById)
-
-			metadata.DELETE("/:id", metadataHandler.Delete)
-		}
+	// Starting the the public HTTP server
+	publicPort := os.Getenv("PUBLICPORT")
+	if publicPort == "" {
+		publicPort = "8080"
 	}
 
-	// Configuring server port
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	public := router.NewPublicRouter(authHandler, authService, crudHandler, cfgService)
+	go func() {
+		err := public.Run(":" + publicPort)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// Starting the private HTTP server, meant only for localhost
+	privatePort := os.Getenv("PRIVATEPORT")
+	if privatePort == "" {
+		privatePort = "9090"
 	}
 
-	// Starting the server
-	err = r.Run(":" + port)
+	// TODO: Guard behind Unix Socket Authentication + Admin Token or Auth Login
+	private := router.NewPrivateRouter()
+	err = private.Run("127.0.0.1:" + privatePort)
 	if err != nil {
 		panic(err)
 	}

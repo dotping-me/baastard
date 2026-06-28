@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/dotping-me/baastard/middleware"
 	"github.com/dotping-me/baastard/payload"
 	"github.com/dotping-me/baastard/services"
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,11 @@ func NewAuthHandler(auth *services.AuthService, sessions *services.SessionServic
 		auth:     auth,
 		sessions: sessions,
 	}
+}
+
+// Encapsulating middleware
+func (h *AuthHandler) AuthRequired() gin.HandlerFunc {
+	return middleware.AuthRequired(h.auth)
 }
 
 // Handler for registering a user @ POST /api/auth/register
