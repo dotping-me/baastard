@@ -5,6 +5,7 @@
 # Outputs
 *.db
 *.db-wal
+*_templ.go
 
 # Produced when testing with CURL
 cookies.txt

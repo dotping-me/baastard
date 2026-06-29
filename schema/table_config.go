@@ -8,6 +8,8 @@ type TableConfig struct {
 	ReadOnly      bool   `json:"readOnly"      gorm:"default:false"` // ReadOnly by a user
 	AuthRequired  bool   `json:"authRequired"  gorm:"default:true"`
 	VectorEnabled bool   `json:"vectorEnabled" gorm:"default:false"`
+
+	// TODO: Add ability to specify which fields are encrypted
 }
 
 type ColumnMetadata struct {

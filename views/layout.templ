@@ -1,0 +1,34 @@
+package views
+
+import "github.com/dotping-me/baastard/views/components"
+
+templ Layout(title string) {
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8"/>
+        
+        <title>{ title }</title>
+        
+        <link rel="stylesheet" href="/css/style.css"/>
+        <script src="/js/index.js" defer></script>
+    </head>
+    <body>
+        <div class="app">
+            
+            <aside class="sidebar">
+                @components.Sidebar()
+            </aside>
+
+            <main class="content">
+                { children... }
+            </main>
+
+             <aside class="workspace">
+                <button id="toggle-workspace">>_</button>
+                @components.SQLEditor()
+            </aside>
+        </div>    
+    </body>
+    </html>
+}

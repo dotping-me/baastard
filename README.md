@@ -6,7 +6,7 @@ This Backend Runtime has been developed following certain opiniated decisions fr
 ## 📦 Prerequisites
 Ensure that you have the required dependencies:
 * [Go v1.26.4](https://go.dev/doc/install)
-* [Go Templ](https://templ.guide/quick-start/installation#go-install-as-tool) as Go Tooling
+* [Go Templ v0.3.960](https://templ.guide/quick-start/installation#go-install-as-tool) as Go Tooling
 
 ## 🔑 Key Concepts
 These are the following considerations I settled upon when developing this system.
@@ -15,6 +15,7 @@ These are the following considerations I settled upon when developing this syste
 ### 2. SQL-First Approach
 ### 3. Turso's Rust Nature & AI Capabilities
 ### 4. Easy Database RPC and Trigger Management
+### 5. Easy Encryption/Decryption
 
 ## ⚙️ How it works?
 This section documents how components of the system operate, hopefully providing comprehension for easier maintenance.

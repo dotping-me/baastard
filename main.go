@@ -79,7 +79,7 @@ func main() {
 	}
 
 	// TODO: Guard behind Unix Socket Authentication + Admin Token or Auth Login
-	private := router.NewPrivateRouter()
+	private := router.NewPrivateRouter(cfgService)
 	err = private.Run("127.0.0.1:" + privatePort)
 	if err != nil {
 		panic(err)

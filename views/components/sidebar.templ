@@ -1,0 +1,43 @@
+package components
+
+type SidebarItem struct {
+    Name string
+    Icon string
+    URL  string
+}
+
+func GetSidebarItems() []SidebarItem {
+    return []SidebarItem{
+        {
+            Name: "Dashboard",
+            URL:  "/",
+        },
+        {
+            Name: "Tables",
+            URL:  "/tables",
+        },
+        {
+            Name: "Docs",
+            URL:  "/docs",
+        },
+        {
+            Name: "Configuration",
+            URL:  "/config",
+        },
+    }
+}
+
+templ Sidebar() {
+    <nav>
+        <h2>BaaStard</h2>
+
+        <ul>
+            for _, item := range GetSidebarItems() {
+                <a class="sidebar-nav-link" href={ item.URL }>
+                    <span class="sidebar-nav-icon">{ item.Icon }</span>
+                    <span class="sidebar-nav-text">{ item.Name }</span>
+                </a>
+            }
+        </ul>
+    </nav>
+}

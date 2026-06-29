@@ -1,0 +1,64 @@
+* {
+    margin: 0px;
+    padding: 0px;
+
+    box-sizing: border-box;
+}
+
+.app {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+
+    display: grid;
+    grid-template-rows: 1fr;
+    grid-template-columns: 15% 1fr 40%;
+
+    transition: grid-template-columns 250ms ease;
+}
+
+.sidebar {
+    overflow: auto;
+    background-color: red;
+}
+
+.content   { 
+    overflow: auto; 
+}
+
+.workspace {
+    padding: 8px 12px;
+    
+    position: relative;
+    background-color: #aaa;
+}
+
+/* Button to hide SQLEditor */
+#toggle-workspace {
+    width: 30px;
+    height: 40px;
+    padding: 0px 16px;
+    padding-left: 4px;
+
+    position: absolute;
+    left: -30px;
+    top: 12px;
+
+    background-color: #aaa;
+    border: 1px solid #aaa;
+    border-right: none;
+    border-radius: 12px 0 0 12px;
+
+    font-size: 18px;
+
+    cursor: pointer;
+    transition: background 150ms;
+}
+
+
+#workspace-toggle:hover {
+    background-color: #ddd;
+}
+
+/* When SQL Editor is hidden, adapt CSS Grid */
+.app.workspace-hidden { grid-template-columns: 20% 1fr 0%; }

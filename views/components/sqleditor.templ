@@ -1,0 +1,13 @@
+package components
+
+templ SQLEditor() {
+    <div class="sql-editor">
+        
+        <h3>SQL Editor</h3>
+        <textarea id="sql" spellcheck="false"></textarea>
+        <button id="exec-sql">Run</button>
+
+        @SQLOutput()
+
+    </div>
+}
